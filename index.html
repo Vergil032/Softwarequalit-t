@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# Softwarequalität
+
+---
+
+# Agenda
+
+1. Warum?
+2. Framework einbinden
+3. Test schreiben
+4. Spies
+5. Stubs
+6. Mock
+7. Snapshot
+
+---
+#1 Warum?
+
+- Damit die Funktionalität des Codes gewährleistet wird, ist es von Voteil Testes zu Schreiben.
+- Um dies zu vereinfachen git es Frameworks wie Jasmine, Mocha, Sinon, Chi, Enzyme oder Jest.
+- Diese erlauben es automatische Testes zu Scheiben, in denen man das Verhalten von Funktionen überprüft.
+- Durch die automatisierung der Tests ist es einfacher Funktionen zu erweitern und dabei Sicherzustellen, dass
+sich das Verhalten der Funktion gegenüber älteren Testes nicht verändert hat.
+
+---
+#2 Framework einbinden
+
+- Es gibt die Möglichkeit das Farmework lokal oder über ein CDN (Content Delivery Network) einzubinden
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Jasmine Test</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jasmine/2.6.1/jasmine.min.css">
+  </head>
+  <body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jasmine/2.6.1/jasmine.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jasmine/2.6.1/jasmine-html.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jasmine/2.6.1/boot.min.js"></script>
+  </body>
+</html>
+```
+---
+#3 Test schreiben
+
+- Der Test wird über die Funktion describe, welche über das Framework mitgeliefert wurde, aufgerufen.
+- In den Funktionen describe und it werden der Name und die Beschreibung des Tests festgelegt.
+- Die Funktion expect überprüft, ob die Funktion den richtigen Wert zurückgibt.
+
+```javascript
+describe("isPalindrome", () => {
+  it("returns true if the string is a palindrome", () => {
+    expect(isPalindrome("abba")).toEqual(true);
+  });
+});
+```
+---
+#4 Spies
+
+- Ein Spy kann als Testfunktion oder Überwacher einer bereits existierenden Funktion eingesetzt werden.
+- Spies werden hauptsächlich zum Überprüfen von Callbacks und der Anzahl der Aufrufe einer Funktion genutzt.
+- Als Beispiel gibt es diese Funktion im Controller:
+
+```javascript
+module.exports = {
+  getIndexPage: (req, res) => {
+    res.send("Hey");
+  }
+}
+```
+---
+#4.1 Spiy Callback
+
+```javascript
+const sinon = require("sinon");
+const indexPage = require("../../controllers/app.controller.js");
+
+describe("getIndexPage", function() {
+  it("should send hey", function() {
+    let req = {}
+    let res = {
+      send: sinon.spy()
+    }
+
+    indexPage.getIndexPage(req, res);
+    expect(res.send.calledOnce).to.be.true;
+    expect(res.send.firstCall.args[0]).to.equal("Hey");
+  });
+});
+```
+
+- In diesem Beilspiel wird die Sendefunktion durch einen Spy ersetzt. Daher kann der Spy sagen
+wie oft die Sendefunktion verwendet wurde und was ihr zurückgeliefert wurde.
+
+---
+#4.2 Spiy Wrap
+
+- In diesem Fall überwacht der Spy die addUser Funktion.
+
+```javascript
+const sinon = require("sinon");
+const indexPage = require("../../controllers/app.controller.js");
+
+const user = {
+  addUser: (name) => {
+    this.name = name;
+  }
+}
+
+describe("User", function() {
+  describe("addUser", function() {
+    it("should add a user", function() {
+      sinon.spy(user, "addUser");
+      user.addUser('John Doe');
+
+      expect(user.addUser.calledOnce).to.be.true;
+    });
+  });
+});
+```
+
+---
+
+#5 Stubs
+
+- Im gegensatz zu Spies, die eine Funktion überwachen, ersetzen Stubs die ganze Funktion.
+- Dies wird nützlich, wenn Rückgabewerte benötigt werden. Anstatt die gesamte Berechnung 
+eines Rückgabewertes durchzuführen, kann dieser einfach festgelegt werden.
+- Als Beispiel gibt es im Controller diese Funktion:
+
+```javascript
+module.exports = {
+  getIndexPage: (req, res) => {
+    if (req.user.isLoggedIn()) {
+      return res.send("Hey");
+    }
+    res.send("Ooops. You need to log in to access this page");
+  }
+}
+```
+
+- Falls der Nutzer eingeloggt ist, wird Hey zurückgesendet. Andernfalls die Fehlermeldung.
+---
+
+#5.1 Stubs
+
+```javascript
+describe("AppController", function() {
+  describe("getIndexPage", function() {
+    it("should send hey when user is logged in", function() {
+      let user = {
+        isLoggedIn: function(){}
+      }
+      const isLoggedInStub = sinon.stub(user, "isLoggedIn").returns(true);
+      let req = {
+        user: user
+      }
+      let res = {
+        send: sinon.spy()
+      }
+      indexPage.getIndexPage(req, res);
+      expect(res.send.calledOnce).to.be.true;
+      expect(res.send.firstCall.args[0]).to.equal("Hey");
+      expect(isLoggedInStub.calledOnce).to.be.true;
+    });
+  });
+});
+```
+
+- Durch sinon.stub(user, "isLoggedIn").returns(true) wird festgelegt, dass die Funktion isLoggedIn
+in diesem fall true zurückgibt.
+
+---
+
+#6 Mock
+
+- Mit Mock lässt sich ein Verhalten vorgeben und durch mock.verify() lässt sich überprüfen ob 
+sich ein Objekt wie vorgegeben verhällt.
+- So lässt sich das Beispiel aus 5.1 ergänzen:
+
+```javascript
+const mock = sinon.mock(res);
+mock.expects("send").once().withExactArgs("Hey");
+
+indexPage.getIndexPage(req, res);
+expect(isLoggedInStub.calledOnce).to.be.true;
+
+mock.verify();
+```
+
+---
+
+#7 Snapshot
+
+- Durch Snapshottests wird überprüft, ob sich die Funktionalität des Programms seit dem letzten Test verändert hat.
+- Dies ist nicht, wie die anderen Tests, für das TDD (test driven development) gedacht, sondern um beim 
+überarbeiten des bereits funktionierenden Programmes fehler zu vermeiden.
+
+```javascript
+it('renders a snapshot', () => {
+  const tree = renderer.create(<App/>).toJSON();
+  expect(tree).toMatchSnapshot();
+});
+```
+
+- Hier wird das Element <App/> erstellt und als JSON gespeichert.
+- Mit der Funktion toMatchSnapshot wird der Snapshot mit der alten Version verglichen oder 
+ein neuer Snapshot erstellt, falls es noch keinen gibt.
+
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create({
+	  highlightLanguage: 'javascript',
+  highlightStyle: 'github',
+  ratio: '4:3',
+
+  // Navigation options
+  navigation: {
+    scroll: true,
+    touch: true,
+    click: false
+  },
+
+  slideNumberFormat: 'Seite %current% von %total%',
+  slideNumberFormat: function (current, total) {
+    return 'Seite ' + current + ' von ' + total;
+  },
+
+  countIncrementalSlides: true
+}); 
+    </script>
+  </body>
+</html>
